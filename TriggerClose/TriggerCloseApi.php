@@ -201,15 +201,14 @@ USAGE;
 		$sql = sprintf("
 			SELECT
 				bht.bug_id,
-				bt.summary
+				bt.summary,
+				MAX(bht.date_modified) AS date_modified
 			FROM
 				".db_get_table('mantis_bug_table')." AS bt
 			INNER JOIN
 				".db_get_table('mantis_bug_history_table')." AS bht
 				ON
 					bht.bug_id = bt.id
-				AND
-					bht.date_modified < %d
 			INNER JOIN
 				".db_get_table('mantis_user_table')." AS ut
 				ON
@@ -222,7 +221,6 @@ USAGE;
 				bt.category_id IN (%s)
 			GROUP BY
 				bht.bug_id",
-				time() - $after_seconds,
 				"'".implode("', '", $privileges)."'",
 				"'".implode("', '", $statuses)."'",
 				"'".implode("', '", $categories)."'"
@@ -233,8 +231,12 @@ USAGE;
 			return array();
 		}
 		$closed = array();
+		$date_threshold = time() - $after_seconds;
 		while($count--) {
 			$row = db_fetch_array($query);
+			if ($row['date_modified'] > $date_threshold) {
+				continue;
+			}
 			if(!self::$dry_run) {
 				bug_close($row['bug_id'], $message);
 			}
